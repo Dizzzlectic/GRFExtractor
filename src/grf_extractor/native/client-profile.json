@@ -1,0 +1,11 @@
+{
+  "executable": "Ragexe.exe",
+  "sha256": "0c8586bf763053290163b9ce5e34bf08f43118032f8edb68a6139f4e307abe6c",
+  "size": 20060160,
+  "image_base": 4194304,
+  "oep": "0xf1cfd0",
+  "oep_ranges": [[4096, 14319763]],
+  "unlicense_commit": "95c8dc6a4324ff70c04bceda8bd166be6c5f0c73",
+  "unlicense_agent_sha256": "831653c8a84fb16dd15497cafe5a83aefe34f2c50f68781f69c6b4eade21fef3",
+  "frida_version": "16.7.19"
+}

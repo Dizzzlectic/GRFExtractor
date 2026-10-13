@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grf-extractor"
+version = "0.1.0"
+description = "Extract Ragnarok Online GRF v2/v3 archives, including supported protected entries."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+dependencies = [
+    "pycryptodome==3.24.0",
+    "xxhash==4.0.1",
+    "lz4==4.4.5",
+]
+
+[project.optional-dependencies]
+native = ["frida==16.7.19"]
+
+[project.scripts]
+grf-extract = "grf_extractor.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Dizzzlectic/GRFExtractor"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"grf_extractor.native" = ["*.json", "*.js"]

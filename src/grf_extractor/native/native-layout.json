@@ -1,0 +1,204 @@
+{
+  "executable_sha256": "0c8586bf763053290163b9ce5e34bf08f43118032f8edb68a6139f4e307abe6c",
+  "address_format": "Virtual addresses at preferred image base 0x400000; adjust for the loaded base.",
+  "cipher_primitives": {
+    "IDEA": {
+      "obfuscated_name": "UGTUQQIZRVRNNMKC",
+      "keylen": 16,
+      "blocksize": 8,
+      "setkey": "0x792040",
+      "block": "0x791df0",
+      "block_direction": "encryption",
+      "modes": {
+        "CBC-encrypt-vtable": "0x123a3d8",
+        "CBC-decrypt-vtable": "0x123a664",
+        "CBC-decrypt-ctor": "0x78aa40"
+      }
+    },
+    "RC5": {
+      "obfuscated_name": "BPYSRQLUVWVDSLFM",
+      "keylen": 16,
+      "blocksize": 8,
+      "rounds": 20,
+      "setkey": "0x792890",
+      "block_encrypt": "0x792480",
+      "OFB-vtable": "0x123a370"
+    },
+    "RC6": {
+      "obfuscated_name": "PRRXWHDPQBPXJUCL",
+      "keylen": 16,
+      "blocksize": 16,
+      "rounds": 20,
+      "setkey": "0x792990",
+      "block_encrypt": "0x792500",
+      "CFB-vtable": "0x123a308"
+    },
+    "TEA": {
+      "obfuscated_name": "GPCUXXXVBOMLHIGU",
+      "keylen": 16,
+      "blocksize": 8,
+      "rounds": 16,
+      "setkey": "0x793240",
+      "block_encrypt": "0x792df0",
+      "CFB-vtable": "0x123a3a4",
+      "ctor": "0x785460"
+    },
+    "XTEA": {
+      "obfuscated_name": "MTANRNOQSJWYVUWP",
+      "keylen": 16,
+      "blocksize": 8,
+      "rounds": 16,
+      "setkey": "0x793260",
+      "block_encrypt": "0x792eb0",
+      "OFB-vtable": "0x123a2d4"
+    },
+    "ThreeWay": {
+      "obfuscated_name": "OARZVWEBZNMAYXCY",
+      "keylen": 12,
+      "blocksize": 12,
+      "setkey": "0x793810",
+      "block_decrypt": "0x7932c0",
+      "block_encrypt": "0x793640",
+      "CBC-vtable": "0x123a33c",
+      "CFB-vtable": "0x123a6cc",
+      "CFB-ctor": "0x78a930"
+    },
+    "GOST": {
+      "obfuscated_name": "WLGIIODPGVUSUJLG",
+      "keylen": 32,
+      "blocksize": 8,
+      "setkey": "0x782100",
+      "block_decrypt": "0x781860",
+      "CBC-vtable": "0x123a698",
+      "CBC-ctor": "0x78aae0",
+      "CUSTOM_SBOX_ADDRESS": "0x1239e98",
+      "CUSTOM_SBOX_SIZE": 128,
+      "substitution_table_hex": "0b040c070c00090d030e0b0b090800040c0104050e03040c07040a0e070f0e000e0b020a020b0b07050a000f0700090004080c07090306040c0e0a0f0d000801060f0004000b00030a0e060c0703050303040f0d03030d0401060f0a0d060c0f020a040c01000e00090c0b0b090503090e090807000f030704070f0d0b0a0602"
+    }
+  },
+  "primitive_scope": "These identify native cipher classes, not a proven mapping from each GRF body ID to an algorithm.",
+  "body_callbacks": {
+    "1": "0x7821f0",
+    "5": "0x787490",
+    "6": "0x787710",
+    "7": "0x787990",
+    "8": "0x787c10",
+    "11": "0x789150",
+    "128": "0x787ed0",
+    "133": "0x788ec0",
+    "256": "0x788130",
+    "257": "0x7883b0",
+    "262": "0x7886a0",
+    "268": "0x788c10",
+    "269": "0x7888e0"
+  },
+  "helpers": {
+    "mode_process": {
+      "address": "0x781260",
+      "abi": "thiscall",
+      "arguments": [
+        "input",
+        "input_length",
+        "output",
+        "output_length",
+        "final_flag"
+      ]
+    },
+    "mode_iv_copy": {
+      "address": "0x7813e0",
+      "abi": "thiscall",
+      "arguments": [
+        "iv",
+        "iv_length"
+      ]
+    },
+    "mt19937_constructor": {
+      "address": "0x78ab80",
+      "abi": "thiscall",
+      "arguments": [
+        "seed"
+      ]
+    },
+    "random_fill": {
+      "address": "0x789f00",
+      "abi": "cdecl",
+      "arguments": [
+        "output",
+        "length",
+        "seed"
+      ]
+    },
+    "shuffle_u32": {
+      "address": "0x78a040",
+      "abi": "cdecl",
+      "arguments": [
+        "first",
+        "last",
+        "seed"
+      ]
+    },
+    "derive_material": {
+      "address": "0x789a60",
+      "abi": "thiscall",
+      "arguments": [
+        "source64",
+        "offset",
+        "selector",
+        "output",
+        "length"
+      ],
+      "context": "this points to filename-hash and decoded-header pointers"
+    },
+    "register_archive_trailer": {
+      "address": "0x78d510",
+      "abi": "thiscall",
+      "arguments": [
+        "empty_string",
+        "zero_length",
+        "trailer",
+        "trailer_length"
+      ],
+      "context": "this points to the decoder instance; returns bool"
+    },
+    "instance_map_allocate": {
+      "address": "0x78ffb0",
+      "abi": "thiscall",
+      "arguments": [
+        "count"
+      ]
+    },
+    "instance_map_rehash": {
+      "address": "0x78fdd0",
+      "abi": "thiscall",
+      "arguments": [
+        "bucket_count"
+      ]
+    },
+    "instance_map_clear": {
+      "address": "0x790010",
+      "abi": "thiscall"
+    }
+  },
+  "callback_parameter_buffer": {
+    "full_decoder_stack_offset": "-0x8c",
+    "decoded_header_stack_offset": "-0x154",
+    "preparation": "Key ID at decoded header40 selects footer plaintext record60; ID0 selects header44..103. Flag bit0 at header11 XORs material with repeating output hash header24..39. Append4 zero bytes.",
+    "body128": "Tail<3072: AES-CBC complete16-byte blocks; otherwise only tail[2048:3072]. Key params44:60, IV28:44. XOR entire tail with IDEA-CBC encryption of filename hash, key output hash, IV params49:57.",
+    "body133": "RC6-20 CFB complete16-byte blocks within first1024 tail bytes, key params24:40, IV40:56. XOR entire tail with IDEA-CBC encryption of output hash, key filename hash, IV params49:57."
+  },
+  "decoder_instance": {
+    "size": 232,
+    "first_header_master_offset": 64,
+    "second_header_master_offset": 128,
+    "header71_mode_offset": 224,
+    "map_node_size": 76,
+    "map_key_offset": 8,
+    "map_value_offset": 10,
+    "map_value_size": 64,
+    "map_value_layout": "uint32 record ID followed by 60 masked bytes",
+    "record_mask_offsets": [
+      32,
+      48
+    ]
+  }
+}
