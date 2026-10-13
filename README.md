@@ -1,7 +1,7 @@
 # GRFExtractor
 
 Extract Ragnarok Online GRF v2/v3 archives, including older DES entries and
-supported protected kRO entries. Portable extraction needs no game executable.
+supported protected kRO entries.
 Archives are read only; this tool does not repack them.
 
 ## Use
