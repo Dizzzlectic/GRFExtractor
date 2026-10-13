@@ -54,7 +54,7 @@ def main():
     parser.add_argument("--entry", action="append", help="Extract only a named entry; repeat as needed")
     parser.add_argument("--resume", action="store_true", help="Recover unfinished records from an extraction checkpoint")
     parser.add_argument("--repair-known-wav", action="store_true",
-                        help="Repair the exact known truncated WAV to match a dated reference; recorded as non-lossless")
+                        help="Zero-fill missing metadata in the exact known truncated WAV; recorded as non-lossless")
     args = parser.parse_args()
     profile = None
     mode = "portable" if args.portable else "native"

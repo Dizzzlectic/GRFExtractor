@@ -1,4 +1,4 @@
-"""Explicit reference-based repairs; none represent lossless extraction."""
+"""Explicit repairs for known damaged entries; none represent lossless extraction."""
 
 import hashlib
 import zlib
@@ -10,7 +10,7 @@ WAV_OUTPUT_SHA256 = "6175b2ef4ce814201f607d173a2d322e93eb011153c780e3660a6e0ab9a
 
 
 def repair_known_wav(name, packed, aligned, real, flags, payload, original_error):
-    """Return the documented reference WAV only for its exact truncated input."""
+    """Zero-fill missing WAV metadata only for the exact known truncated input."""
     if (name != WAV_NAME or flags != 1 or (packed, aligned, real) != (1410, 1410, 1410)
             or len(payload) != aligned
             or hashlib.sha256(payload).hexdigest() != WAV_INPUT_SHA256):
@@ -33,12 +33,12 @@ def repair_known_wav(name, packed, aligned, real, flags, payload, original_error
         "name_hex": name.hex(),
         "input_sha256": WAV_INPUT_SHA256,
         "output_sha256": WAV_OUTPUT_SHA256,
-        "method": "Append seven zero metadata bytes to match the dated reference",
+        "method": "Append seven zero bytes to replace missing WAV metadata",
         "missing_metadata_bytes": 7,
         "missing_checksum_bytes": 4,
         "original_error": str(original_error).splitlines()[0],
-        "reference": "kRO-2026-02-19/data.grf: data\\wav\\worm_tail_damage.wav",
+        "reference": "https://github.com/Dizzzlectic/GRFExtractor/blob/main/docs/extraction.md#repairing-a-known-truncated-wav",
         "metadata_ambiguous": True,
         "lossless": False,
-        "note": "The reference matches all surviving bytes; the missing original metadata and checksum cannot be recovered.",
+        "note": "All surviving audio is preserved; zero-filling does not recover the missing original metadata or compressed-stream checksum.",
     }

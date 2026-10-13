@@ -26,7 +26,9 @@ failures. Unknown protected formats and damaged entries fail explicitly.
 - `src/grf_extractor/codecs/`: portable header, key-block and body decoding.
 - `src/grf_extractor/native/`: optional Windows/Frida decoder and client profile.
 - `tests/`: extraction regressions, synthetic decoder fixtures and native bridge checks.
-- [Format and native-mode notes](docs/format.md).
+
+[Format notes](docs/format.md) · [Extraction and recovery](docs/extraction.md) ·
+[Native decoder](docs/native.md)
 
 ## Check
 
