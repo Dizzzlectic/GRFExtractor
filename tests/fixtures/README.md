@@ -15,6 +15,11 @@ python tests/fixtures/generate.py --check
 Omit `--check` to write the regenerated files. The generator reads no archives,
 game executables, or decoder source.
 
+Byte-for-byte regeneration uses standard zlib, as in the Linux CI job. Python
+3.14 on Windows uses zlib-ng, which can emit different compressed bytes for the
+same input. Both CI platforms decode and validate the checked-in fixtures;
+only Linux checks that regeneration reproduces their exact bytes.
+
 | File | Contents |
 | --- | --- |
 | `protected-grf.bin` | Header types 1, 2, 15, and 113; body ciphers 1, 5, 7, 128, and 133; stored, zlib, and LZ4 data; inline and footer keys; hash-mixed parameters; cipher window and partial-block boundaries; invalid lengths, padding, hashes, and unsupported formats. |
