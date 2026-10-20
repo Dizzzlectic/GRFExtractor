@@ -62,14 +62,19 @@ class ExtractionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signature"):
             read_entries(self.source)
 
-    def test_collisions_fail_before_writing_even_on_resume(self):
-        for names in ([b"data\\a.txt", b"data/a.txt"], [b"data", b"data/a.txt"]):
+    def test_collisions_get_distinct_paths_and_resume(self):
+        for index, names in enumerate(([b"data\\a.txt", b"data/a.txt"], [b"data", b"data/a.txt"])):
+            self.output = self.root / f"collisions{index}"
             archive(self.source, names)
-            for args in ((), ("--resume",)):
-                result = self.run_tool(*args)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("extraction path", result.stderr)
-                self.assertFalse(self.output.exists())
+            result = self.run_tool()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            paths = list(self.manifest()["files"])
+            self.assertEqual(len(paths), 2)
+            self.assertEqual(len({p.casefold() for p in paths}), 2)
+            for path in paths:
+                self.assertEqual((self.output / path).read_bytes(), b"hello")
+            result = self.run_tool("--resume")
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_hard_exit_recovers_checkpoint_and_unrecorded_output(self):
         archive(self.source, [b"a.txt", b"b.txt", b"c.txt"])

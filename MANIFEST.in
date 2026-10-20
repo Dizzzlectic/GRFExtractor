@@ -1,3 +1,10 @@
 graft docs
 graft tests
+graft validation
+graft interop
+include NOTICE
 global-exclude __pycache__ *.py[cod]
+
+prune interop/bin
+prune interop/obj
+global-exclude *.exe *.dll *.pdb

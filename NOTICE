@@ -1,0 +1,16 @@
+GRF tooling source is provided under GPL-3.0-or-later; see LICENSE.
+
+The protected codec, legacy DES implementation, and independent fixture tests
+derive from Flux159/roBrowserLegacy-RemoteClient-Rust, revision
+a210fee29fef73eacf8a52ee3a4e79d59a5cf5cf, including contributions by Dizzzlectic.
+https://github.com/Flux159/roBrowserLegacy-RemoteClient-Rust
+
+Custom cipher reference: src/grf_ciphers.rs, src/grf_protected.rs,
+scripts/grf_des.py, and tests/fixtures/generate.py. ThreeWay's reference algorithm
+follows the public-domain Crypto++ implementation. Changes here add Python
+decoding, general-purpose protected encoding, container writing, and disk tools.
+
+The interop harness uses an external, unmodified checkout of GRFEditor PR 20,
+revision 7582a851dcff77cd741cd7176470cedc3cc72fac. That project and its dependencies
+retain their respective licenses. Its source and compiled libraries are not
+vendored into this repository.

@@ -1,0 +1,244 @@
+"""Protected-format tests, including frozen independent encoder vectors.
+
+Reference vectors originate in gruf's tests/fixtures/generate.py, rather than
+this implementation. They contain synthetic data and no game assets.
+"""
+import hashlib
+import os
+import struct
+import tempfile
+import unittest
+import zlib
+from pathlib import Path
+
+import xxhash
+from Crypto.Cipher import AES
+
+from grfkit.protected import decode_entry, encode_entry, decode_keys, encode_keys
+
+NAME = b"data\\\xc7\xd1\xb1\xdb\\protected.txt"
+PARAM = bytes((i * 31 + 7) % 256 for i in range(60))
+RAW = bytes.fromhex(
+    "01020000b5b4ecea2cc21824f9098d36226df69f767583cbb92b8e36015e213fe22c44a4"
+    "7bd43931db3aca5a12a1eb23a1801f0b5710c182261c63c64de107bac400fb7e0168152"
+    "b3afa68f30a375eadf995c7047fcfdf3fd52ccfd6f0ed94e970b2d5d3577aab2970"
+    "726f746563746564207061796c6f6164"
+)
+FOOTER = bytes.fromhex(
+    "0101000000f1536500000000400000004f7a4f950f76655c66f7cc2254543ce064485f71"
+    "b63d44a254156821d87acca72e5f93a2ade3e6f60ee7af8140dcdb8d277c28a3c84ebae"
+    "365215c3840b67499840b4fd2"
+)
+BOUNDARIES = {
+    (128, 128): "06e424be25f10fdefac2db88b43baa3abc41bb3597f08ad31e23f0cc2b0b266d",
+    (128, 144): "b545d44bf65e0b4937d35d74c016eca521c5b8e402d6b17d2113e89a320930bb",
+    (128, 3199): "a331272a5b39dcc8d692445449dad15e350c4cb5d0d9752386f14aa7089fdeef",
+    (128, 3200): "f45e05770035309a2da51d26171b52ec6f5be5d491d6221cf2bd4e5276462002",
+    (128, 3201): "5160df236eca83a84331b569652c23a8711fa808d60c56dc8245bc0556f7ec60",
+    (133, 1151): "ed164ecc799f972d937b82b208533a630edf5f4b29f802e83f2dc8df379a17ae",
+    (133, 1152): "d33d71508f2b5143fc97f2f3e8418765e5a8165afd0803fd1ffa7accad55a6c8",
+    (133, 1153): "53fb3a00ad9e810775efe57d16962640c87758a96ba93cb4fdbb6ff541efc6a0",
+    (5, 129): "ca4adf60dca7d1c596606aa77f157620c4bbdada7c3267e4c5a8a40fc5548825",
+    (5, 144): "ab9945a4478c63312af7c4177c90bf2acbf1f003ee07c5f267dc1d1034e62938",
+    (5, 1151): "95e2cc933395a539f7e89c6ca31e9a95e515235f5e7dbb81741c9ac5de90d85a",
+    (5, 1152): "2c6d79fba26ad21df956c806a2d20115d22b41b00114d5602b435910c481c4e2",
+    (5, 1153): "54fe13f5626391f0a65f2eca1600a10b2cb223b593039c15d328e712e4060f94",
+    (7, 143): "61e9c21eba7f6baaa112fc4c773f9fc1a5a7bb3ab037f87e51659f5cccf858f3",
+    (7, 1153): "323a33cc121ddcca10ba0a556b768ed062c08f3fba0ebbba108a309817c6adbd",
+    (1, 143): "4e828e58c32bfbfed9d43db2a2f83dcac7be91b498f8d2f55fad6c0d09011e50",
+    (1, 144): "11ec96b3bf76914f04ead056d172830347a0a6774192e246e6e8b39556f5b44e",
+    (1, 1151): "13f7f023851d80585df52bc573cf406ba937fe82401e56457cd0ed82c0ab39c9",
+    (1, 1152): "6a244028eed2c5701f3f180e2378bbe718594e40b3b338e528e11e400900bd1a",
+    (1, 1153): "e7160f07246274c10c4839d1ff04dd3ab3476d37230dccc0752b46544a63fc89",
+}
+
+
+class ProtectedTests(unittest.TestCase):
+    def test_known_header_and_raw_filename(self):
+        self.assertEqual(decode_entry(RAW, NAME, 17, {}), b"protected payload")
+        self.assertEqual(encode_entry(b"protected payload", NAME, compression=0,
+                         header_type=2, flags=0, material=PARAM), RAW)
+        with self.assertRaises(ValueError):
+            decode_entry(RAW, NAME.decode("cp949").encode(), 17, {})
+
+    def test_known_archive_key(self):
+        self.assertEqual(decode_keys(FOOTER), {7: PARAM})
+        encoded = encode_keys({7: PARAM})
+        self.assertEqual(encoded[12:], FOOTER[12:])
+        self.assertEqual(decode_keys(encoded), {7: PARAM})
+        self.assertEqual(decode_keys(b""), {})
+        self.assertEqual(encode_keys({}), b"")
+
+    def test_keyblock_revision_defaults_to_low_positive_native_priority(self):
+        encoded = encode_keys({7: PARAM})
+        revision, = struct.unpack_from("<q", encoded, 4)
+        self.assertEqual(revision, 1)
+        # The actual archive wrappers require signed revision > 0 before
+        # calling the native key loader; revision 0 silently skips loading.
+        self.assertGreater(revision, 0)
+        self.assertEqual(encoded[12:], FOOTER[12:])
+
+    def test_keyblock_explicit_revision_and_invalid_values(self):
+        for timestamp in (1, 1700000000, (1 << 63) - 1):
+            with self.subTest(timestamp=timestamp):
+                encoded = encode_keys({7: PARAM}, timestamp=timestamp)
+                self.assertEqual(struct.unpack_from("<Q", encoded, 4)[0], timestamp)
+                self.assertEqual(decode_keys(encoded), {7: PARAM})
+        for timestamp in (0, -1, 1 << 63, 1 << 64, 1.5, "1", None, True):
+            with self.subTest(timestamp=timestamp), self.assertRaises(ValueError):
+                encode_keys({7: PARAM}, timestamp=timestamp)
+
+    def test_old_zero_revision_remains_readable_and_raw_preserved(self):
+        from grfkit.archive import Archive, Writer
+
+        old = FOOTER[:4] + bytes(8) + FOOTER[12:]
+        self.assertEqual(decode_keys(old), {7: PARAM})
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "preserved-zero.grf"
+            with Writer(path, raw_keys=old) as writer:
+                writer.add(NAME, b"content", protect=True)
+            with Archive(path) as archive:
+                self.assertEqual(archive.raw_keys, old)
+                self.assertEqual(archive.read(archive.entries[0]), b"content")
+
+    def test_independent_cipher_boundary_vectors(self):
+        for (cipher, length), expected in BOUNDARIES.items():
+            with self.subTest(cipher=cipher, length=length):
+                data = hashlib.shake_256(f"{cipher}-{length}".encode()).digest(length)
+                payload = encode_entry(data, NAME, cipher=cipher, compression=0,
+                                       header_type=1, flags=length % 2, material=PARAM)
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), expected)
+                self.assertEqual(payload[104:232], data[:128])
+                self.assertEqual(decode_entry(payload, NAME, length, {}), data)
+
+    def test_independent_header_and_compression_encodings(self):
+        vectors = [
+            (b"zlib fixture", 1500, 133, 1, 1, 7, 1,
+             "38b5f602fddd0480b74371db5bab117ae479481730fb1b883e89b63c9a982856"),
+            (b"lz4 fixture", 700, 128, 2, 15, 0, 0,
+             "98fbf8fd0297c3796dd3bf51e895c65cc9fd85da592941efc0d6fe4ec7267d17"),
+            (b"threeway fixture", 143, 133, 0, 0x71, 0, 0,
+             "9bdee460320f658b1c34bd9a9cc878808cc0804fa0bad5e98a2929bd5b2563a9"),
+            (b"body1 lz4 fixture", 1400, 1, 2, 0x71, 7, 1,
+             "085b726d69a46a0979122a87b9b7be1f176c046c2618a8ca2d5475f021528e3f"),
+        ]
+        for seed, size, cipher, comp, kind, kid, flags, expected in vectors:
+            with self.subTest(seed=seed):
+                data = hashlib.shake_256(seed).digest(size)
+                payload = encode_entry(data, NAME, cipher=cipher, compression=comp,
+                    header_type=kind, key_id=kid, keys={7: PARAM}, flags=flags,
+                    material=None if kid else PARAM)
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), expected)
+
+    def test_checked_malformed_headers_and_streams(self):
+        # Build malformed cases with a valid header checksum, independently of
+        # protected.py, to reach the parser checks behind the encrypted header.
+        def fixture(edits, body=None):
+            iv = xxhash.xxh3_128_intdigest(NAME).to_bytes(16, "little")
+            key = bytes.fromhex("56fd7e712f6d36f55ca599e67b18107a")
+            header = bytearray(RAW[:8] + AES.new(key, AES.MODE_CBC, iv).decrypt(RAW[8:104]))
+            if body is None:
+                body = RAW[104:]
+            struct.pack_into("<II", header, 12, len(body), len(body))
+            for offset, value in edits.items():
+                header[offset:offset + len(value)] = value
+            struct.pack_into("<I", header, 4, xxhash.xxh32_intdigest(header[8:]))
+            return bytes(header[:8]) + AES.new(key, AES.MODE_CBC, iv).encrypt(header[8:]) + body
+
+        for edits, body in [
+            ({8: struct.pack("<H", 6)}, None),
+            ({10: b"\x03"}, None),
+            ({11: b"\x02"}, None),
+            ({12: struct.pack("<I", 1000)}, None),
+            ({16: struct.pack("<I", 1000)}, None),
+            ({20: struct.pack("<I", 0xFFFFFFFF)}, None),
+            ({40: struct.pack("<I", 7)}, None),
+            ({}, b"bad"),
+            ({10: b"\x01"}, zlib.compress(b"protected payload")[:-1]),
+            ({10: b"\x01"}, zlib.compress(b"protected payload") + b"extra"),
+            ({10: b"\x01"}, zlib.compress(bytes(1024))),
+            ({10: b"\x02"}, b"invalid lz4"),
+        ]:
+            with self.subTest(edits=edits), self.assertRaises(ValueError):
+                decode_entry(fixture(edits, body), NAME, 17, {})
+        padded = bytearray(encode_entry(bytes(144), NAME, cipher=5, compression=0))
+        padded[104 + 128 + 15] ^= 1
+        with self.assertRaisesRegex(ValueError, "PKCS#7"):
+            decode_entry(bytes(padded), NAME, 144, {})
+
+    def test_all_ciphers_headers_compressions_and_renaming(self):
+        data = hashlib.shake_256(b"codec Cartesian cases").digest(1351)
+        for cipher in (1, 5, 7, 128, 133):
+            for header_type in (1, 2, 15, 0x71):
+                for compression in (0, 1, 2):
+                    with self.subTest(cipher=cipher, header=header_type, comp=compression):
+                        name = b"data\\renamed\\\xff.bin"
+                        payload = encode_entry(data, name, cipher=cipher,
+                            header_type=header_type, compression=compression,
+                            key_id=7, keys={7: PARAM}, flags=1)
+                        self.assertEqual(decode_entry(payload, name, len(data), {7: PARAM}), data)
+                        with self.assertRaises(ValueError):
+                            decode_entry(payload, NAME, len(data), {7: PARAM})
+
+    def test_empty_and_short(self):
+        for data in (b"", b"a", bytes(128)):
+            for cipher in (1, 5, 7, 128, 133):
+                for comp in (0, 1, 2):
+                    payload = encode_entry(data, NAME, cipher=cipher, compression=comp)
+                    self.assertEqual(decode_entry(payload, NAME, len(data), {}), data)
+
+    def test_corruption(self):
+        for broken in (b"", RAW[:103], RAW[:-1], RAW + b"x", bytes([2]) + RAW[1:]):
+            with self.subTest(length=len(broken)), self.assertRaises(ValueError):
+                decode_entry(broken, NAME, 17, {})
+        for offset in (4, 8, 50, 104):
+            broken = bytearray(RAW)
+            broken[offset] ^= 1
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                decode_entry(bytes(broken), NAME, 17, {})
+        for broken in (FOOTER[:-1], FOOTER + b"x", FOOTER[:20] + bytes(64)):
+            with self.assertRaises(ValueError):
+                decode_keys(broken)
+        with self.assertRaises(ValueError):
+            decode_entry(RAW, NAME, 18, {})
+        for key in (0, -1, 65536):
+            with self.assertRaises(ValueError):
+                encode_keys({key: PARAM})
+
+    def test_optional_full_independent_reference_bundle(self):
+        root = Path(os.environ.get(
+            "GRF_REFERENCE_ROOT",
+            Path(__file__).resolve().parents[3] / "roBrowserLegacy-RemoteClient-Rust",
+        ))
+        path = root / "tests/fixtures/protected-grf.bin"
+        if not path.exists():
+            self.skipTest("optional upstream fixture bundle is not present")
+        bundle = path.read_bytes()
+        count, = struct.unpack_from("<I", bundle)
+        offset = 4
+        for _ in range(count):
+            values = []
+            for _ in range(5):
+                length, = struct.unpack_from("<I", bundle, offset)
+                offset += 4
+                values.append(bundle[offset:offset + length])
+                offset += length
+            size, = struct.unpack_from("<I", bundle, offset)
+            offset += 4
+            tag, name, keys, payload, data = values
+            valid = tag.startswith(b"boundary-") or tag in (
+                b"raw-name", b"zlib-rc6-footer", b"lz4-aes-checksum",
+                b"threeway-partial", b"body1-lz4")
+            with self.subTest(tag=tag.decode()):
+                if valid:
+                    self.assertEqual(decode_entry(payload, name, size, decode_keys(keys)), data)
+                elif tag.startswith(b"footer-"):
+                    with self.assertRaises(ValueError):
+                        decode_keys(keys)
+                else:
+                    with self.assertRaises(ValueError):
+                        decode_entry(payload, name, size, decode_keys(keys))
+
+
+if __name__ == "__main__":
+    unittest.main()

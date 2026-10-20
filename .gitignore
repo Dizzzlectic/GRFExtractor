@@ -10,3 +10,8 @@ dist/
 *.dll
 *.manifest.json
 unlicense-agent.js
+artifacts/
+scratch/
+interop/bin/
+interop/obj/
+.pytest_cache/
