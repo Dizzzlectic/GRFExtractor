@@ -34,3 +34,60 @@ stays stopped at its original entry point while selected decoder callbacks run;
 the isolated process is terminated afterward. Native addresses and calling
 conventions are recorded in [native-layout.json](../src/grf_extractor/native/native-layout.json)
 and [native-decoder.js](../src/grf_extractor/native/native-decoder.js).
+
+## Archive-key loader validation
+
+Use [native_keyblock_probe.py](../validation/native_keyblock_probe.py) and its
+[JavaScript probe](../validation/native_keyblock_probe.js) with the Windows
+runtime and exact executable profile described above. They call the archive-key
+loader in an owned scratch process held at its original entry point. They do not
+modify the archive or establish gameplay compatibility.
+
+The probe runs the bridge's cipher initializers, then constructor VA `0x0078ac80`
+and loader VA `0x0078d510`, at image base `0x00400000`, with a fresh context and
+empty outer-name span. It reads the loader result and published record count.
+
+`--trace-derivations` observes the loader on a separate thread. A hardware
+watchpoint follows the final byte of its body-sized allocation. It reads the
+digest at `EBP-0x49c`, CHAM schedule at `EBP-0x40c` and candidate seed at
+`EBP-0x42c`. A digest is retained only when its key expansion matches the native
+schedule; a seed is retained only when its SHA-256 matches the digest. Raw stack
+frames and key records are not saved. The limits are eight watchpoint hits per
+call, 15 seconds per call and a 60-second process watchdog. Successful cleanup
+requires termination of the owned process.
+
+The patch-7436 September archive uses the alternate derivation described in
+[Protected format](protected-format.md#archive-key-block). Its key block is 276
+bytes at file offset 4925701332, SHA-256
+`59d6b14af3c44727326f1b41336f59f6a16417f585b9b99a70659a383d54b40d`.
+The source `kRO-20260930/data.grf` is 4925701608 bytes, SHA-256
+`f9ad4407c4f3d007b39305743f139611995ee46d77a4d75bbead55a30906c668`.
+The loader accepts this block with four records. Flipping bit zero of its first
+body byte or checksum byte makes it reject the block with no records.
+
+### Reproduce
+
+Copy the selected key block into scratch. With the portable reader, its bytes
+are available as `Archive(path).raw_keys`; close the archive after reading.
+Without decoding, read the little-endian u64 table offset at header byte 30
+and add 46. At that position read the u32 key-block size and compressed-table
+size. The key block follows the 12-byte table preamble and compressed table.
+Check its identity above.
+
+Using the Windows environment and variables described earlier:
+
+```powershell
+& "$research\python32\python.exe" "$research\tools\validation\native_keyblock_probe.py" `
+  --client "$research\client\Ragexe.exe" `
+  --agent "$research\tools\unlicense-agent.js" `
+  --key-block "$research\real-keyblock.bin" `
+  --trace-derivations --controls --output "$research\keyblock-probe.json"
+```
+
+Expect acceptance with four records after the alternate derivation, rejection of
+both damage controls and `process_terminated: true`. The checked-in legacy
+`tests/fixtures/protected-footer.bin` and alternate `ALTERNATE_FOOTER` in
+`tests/grfkit/test_grfkit_protected.py` provide synthetic controls: each original
+should yield one record and its two damaged variants should be rejected.
+A different executable requires fresh address and calling-convention checks.
+Ordinary archive operations do not require this probe or a running client.

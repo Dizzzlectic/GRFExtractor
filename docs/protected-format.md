@@ -82,16 +82,30 @@ An absent key block is represented by empty bytes. Otherwise its 20-byte clear
 header is `01 01 00 00`, an eight-byte timestamp/revision field, a four-byte
 ciphertext size, and XXH32 of the decrypted records. Each 64-byte record holds
 a four-byte ID followed by 60 material bytes. IDs must be unique and in
-`1..65535`. The body is CHAM-CBC encrypted using the first and second halves
-of SHA-256 of ASCII `uf8E8qAwHthrLxiS` as its key and IV.
+`1..65535`. The reader tries two CHAM-CBC derivations in order: SHA-256 of ASCII
+`uf8E8qAwHthrLxiS`, then SHA-256 of ASCII `xifEFhJEjducBA7U`. Each digest's first
+16 bytes supply the key and its last 16 bytes supply the IV. Both use the same
+clear marker. Each attempt decrypts the original stored body and must match the
+stored XXH32 before any records are accepted. No default-key substitution is
+performed when these checks fail.
+
+The alternate derivation was observed in the exact-profile Windows native key
+loader and checked against the patch-7436 September archive. The first derivation
+produces checksum `0xd8b017ec` for that block; the second produces its stored
+`0xa5bbcbbb` and records ordered 4,1,2,3. The
+[native key-block probe](native.md#archive-key-loader-validation) owns the input
+identities, controls and reproduction procedure. This is actual body decoding,
+separate from recognition of default-key checksums in `01 00 00 00` blocks;
+that marker remains unsupported by this Python reader.
 
 `encode_keys` emits records in ascending ID order and a deterministic revision
-of **1** by default. Native archive wrappers skip zero revisions before calling
+of **1** by default, using the first derivation. Native archive wrappers skip
+zero revisions before calling
 their key loader. An explicit `encode_keys(keys, timestamp=value)` accepts
 integer revisions in `1..INT64_MAX`; zero, negative and larger values are
 rejected for newly encoded blocks. Existing zero-revision blocks remain
 readable, and passing an existing `raw_keys` block to `Writer` preserves its
-bytes, including its revision.
+bytes, including its derivation and revision.
 
 The client can choose the newest signed-positive revision across mounted GRFs
 and apply that same key block to every archive context. The default 1 is

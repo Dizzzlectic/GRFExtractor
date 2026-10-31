@@ -25,6 +25,10 @@ _AES_IV = bytes.fromhex("4ce8a1ae45b321607e4f26a4bb140c96")
 _THREEWAY_KEY = bytes.fromhex("ad61aedabf203e1dfe1db72b")
 _THREEWAY_IV = bytes.fromhex("a095dfcfd04b74db027ede09")
 _KEY_DIGEST = hashlib.sha256(b"uf8E8qAwHthrLxiS").digest()
+_KEY_DECODE_DIGESTS = (
+    _KEY_DIGEST,
+    hashlib.sha256(b"xifEFhJEjducBA7U").digest(),
+)
 
 
 def _hash(data: bytes, seed: int = 0) -> bytes:
@@ -184,8 +188,13 @@ def decode_keys(raw: bytes) -> dict[int, bytes]:
     size, checksum = struct.unpack_from("<II", raw, 12)
     if not size or size % 64 or size // 64 > 65535 or size != len(raw) - 20:
         raise ValueError("GRF archive key-block size mismatch")
-    decoded = _cham_cbc(raw[20:], _KEY_DIGEST[:16], _KEY_DIGEST[16:], True)
-    if xxhash.xxh32_intdigest(decoded) != checksum:
+    # The marker does not distinguish these native-supported derivations.
+    # Each attempt decrypts the original body and must match its stored checksum.
+    for digest in _KEY_DECODE_DIGESTS:
+        decoded = _cham_cbc(raw[20:], digest[:16], digest[16:], True)
+        if xxhash.xxh32_intdigest(decoded) == checksum:
+            break
+    else:
         raise ValueError("GRF archive key-block checksum mismatch")
     result = {}
     for off in range(0, size, 64):
